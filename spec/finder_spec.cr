@@ -12,7 +12,7 @@ def it_matches (in, pat, exp, max = 0)
     end
 end
 
-describe Trouve do
+describe "Trouve::Finder" do
     it_matches "abc", "a", [0]
     it_matches "abc\ndef", "a", [0]
     it_matches "abc\ndef", "ad", [] of Int32

@@ -2,6 +2,8 @@ class Trouve::Finder
     def initialize(@pattern: (String|Regex), @max_matches = 0)
     end
 
+    # find yields the line number and the line string for each matches found,
+    # up top @max_matches (all matches if @max_matches is 0).
     def find(io: IO)
         line_num = 0
         matches = 0
