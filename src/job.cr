@@ -2,9 +2,10 @@ class Trouve::Job
     WORKERS = 10
 
     # TODO : implement those... (also, inc/exc dirs, regex patterns)
-    property :max_matches, :include_files, :exclude_files
+    property :pattern, :dir, :max_matches, :include_files, :exclude_files
 
-    def initialize(@pattern: String, @dir = "." : String)
+    def initialize(@pattern: (String | Regex), @dir = "." : String)
+        @max_matches = 0
     end
 
     def run()
@@ -53,9 +54,22 @@ class Trouve::Job
 
     private def find_in_file(filename: String)
         line_num = 0
+        matches = 0
         File.each_line(filename) do |line|
             line_num += 1
-            puts "> #{filename}:#{line_num}: #{line}" if line.includes?(@pattern)
+            case pat = @pattern
+            when String
+                if line.includes?(pat)
+                    puts "> #{filename}:#{line_num}: #{line}" 
+                    matches += 1
+                end
+            else
+                if line =~ pat
+                    puts "> #{filename}:#{line_num}: #{line}"
+                    matches += 1
+                end
+            end
+            break if @max_matches > 0 && matches >= @max_matches
         end
     end
 end
