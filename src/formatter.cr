@@ -1,8 +1,5 @@
 class Trouve::Formatter
-    def initialize(@matches: Channel(Match), @stop: Channel(Bool))
-    end
-
-    def run()
+    def self.run(matches: Channel(Match), stop: Channel(Bool))
         puts "Started"
         loop do
             Scheduler.yield

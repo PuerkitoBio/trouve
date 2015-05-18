@@ -15,18 +15,34 @@ class Trouve::Job
         # start the workers
         ch = Channel(String).new
         stop = Channel(Bool).new
+        stop_matches = Channel(Bool).new
         matches = Channel(Match).new
-        # TODO : start Formatter's thread to process matches
-        f = Formatter.new(matches, stop)
-        spawn f.run()
+
+        spawn process_matches(matches, stop_matches)
         WORKERS.times do |i|
             spawn process_files(ch, stop, matches)
         end
 
         process_dir(@dir, ch)
 
-        (WORKERS + 1).times do |i|
+        WORKERS.times do |i|
             stop.send true
+        end
+        stop_matches.send true
+    end
+
+    private def process_matches(matches: Channel(Match), stop: Channel(Bool))
+        loop do
+            case Channel.select(matches, stop)
+            when matches
+                m = matches.receive
+                if m.line_nums.length > 0
+                    STDOUT.puts "#{m.filename}: #{m.line_nums.length} matches"
+                end
+            when stop
+                stop.receive
+                break
+            end
         end
     end
 
@@ -102,5 +118,9 @@ class Trouve::Job
 
             break if @max_matches > 0 && matches >= @max_matches
         end
+        if add_in >= 0
+            match.buffers << {line_num - buffer.length, buffer.to_a}
+        end
+        match
     end
 end
