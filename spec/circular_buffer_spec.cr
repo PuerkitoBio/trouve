@@ -6,11 +6,15 @@ def create_with(values)
     cb
 end
 
-def create_with_and_iter(values)
-    cb = create_with(values)
+def iter(cb)
     got = [] of Int32
     cb.each { |e| got << e }
     got
+end
+
+def create_with_and_iter(values)
+    cb = create_with(values)
+    iter(cb)
 end
 
 describe "Trouve::CircularBuffer" do
@@ -64,5 +68,9 @@ describe "Trouve::CircularBuffer" do
     end
     it "can iterate after rotation of four" do
         create_with_and_iter([1,2,3,4,5,6,7]).should eq([5,6,7])
+    end
+    it "keeps going after expand" do
+        cb = create_with([1,2,3,4,5,6,7]).expand(2).push(8).push(9).push(10)
+        iter(cb).should eq([6,7,8,9,10])
     end
 end
