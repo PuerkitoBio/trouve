@@ -1,6 +1,9 @@
-require "./trouve/*"
 require "option_parser"
-require "./*"
+require "../*"
+
+module Trouve
+  VERSION = "0.0.1"
+end
 
 opts = OptionParser.parse! do |opts|
     opts.banner = "Usage: #{PROGRAM_NAME} [OPTION]... PATTERN [FILES OR DIRECTORIES]

@@ -1,10 +1,9 @@
 class Trouve::CircularBuffer(T)
     include Enumerable
 
-    @insert_at = 0
-
     def initialize(@capacity = 3: Int)
         @container = Array(T).new(@capacity)
+        @insert_at = 0
     end
 
     def self.new(ary: Array(T))
@@ -29,14 +28,17 @@ class Trouve::CircularBuffer(T)
         end
         @insert_at += 1
         @insert_at = 0 if @insert_at >= @capacity
+        self
     end
 
     def each
-        index = @insert_at
+        index = 0
+        index = @insert_at if length == @capacity
         @container.length.times do |i|
             yield @container[index]
             index += 1
             index = 0 if index >= @container.length
         end
+        self
     end
 end
