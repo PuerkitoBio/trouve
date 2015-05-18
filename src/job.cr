@@ -1,10 +1,11 @@
 class Trouve::Job
     WORKERS = 10
+    # TODO : use the max line length
     MAX_LINE_LENGTH = 256
 
-    # TODO : implement those... (also, inc/exc dirs, regex patterns)
-    property :pattern, :dir, :max_matches, :include_files, :exclude_files
-    property :after, :before
+    # TODO : implement those... (also, inc/exc dirs)
+    # property :include_files, :exclude_files, :include_dirs, :exclude_dirs
+    property :pattern, :dir, :max_matches, :after, :before
 
     def initialize(@pattern: (String | Regex), @dir = "." : String)
         @max_matches = 0
@@ -16,7 +17,7 @@ class Trouve::Job
         ch = Channel(String).new
         stop = Channel(Bool).new
         stop_matches = Channel(Bool).new
-        matches = Channel(Match).new
+        matches = Channel(Match).new(WORKERS)
 
         spawn process_matches(matches, stop_matches)
         WORKERS.times do |i|
@@ -111,6 +112,7 @@ class Trouve::Job
                 matches += 1
             end
 
+            # TODO: adjust add_in when many matches are found in the same buffer
             if add_in == 0
                 match.buffers << {line_num - buffer.length, buffer.to_a}
                 add_in = -1
