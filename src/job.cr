@@ -1,5 +1,6 @@
 class Trouve::Job
     WORKERS = 10
+    MAX_LINE_LENGTH = 256
 
     # TODO : implement those... (also, inc/exc dirs, regex patterns)
     property :pattern, :dir, :max_matches, :include_files, :exclude_files
@@ -14,13 +15,17 @@ class Trouve::Job
         # start the workers
         ch = Channel(String).new
         stop = Channel(Bool).new
+        matches = Channel(Match).new
+        # TODO : start Formatter's thread to process matches
+        f = Formatter.new(matches, stop)
+        spawn f.run()
         WORKERS.times do |i|
-            spawn process_files(ch, stop)
+            spawn process_files(ch, stop, matches)
         end
 
         process_dir(@dir, ch)
 
-        WORKERS.times do |i|
+        (WORKERS + 1).times do |i|
             stop.send true
         end
     end
@@ -42,21 +47,22 @@ class Trouve::Job
         end
     end
 
-    private def process_files(ch: Channel(String), stop: Channel(Bool))
+    private def process_files(ch: Channel(String), stop: Channel(Bool), 
+                             matches: Channel(Match))
         loop do
             case Channel.select(ch, stop)
             when ch
                 filename = ch.receive
                 begin
-                    find_in_file(filename)
+                    m = find_in_file(filename)
                 rescue ex: InvalidByteSequenceError
                     # presumably a binary file
                     # TODO : detect binary or not using first few bytes
                     # maybe https://mimesniff.spec.whatwg.org/ ?
-                    puts "skipping binary file #{filename}"
                 rescue ex: Exception
-                    puts "error reading #{filename}: #{ex}"
+                    m = Match.new(filename, ex.message)
                 end
+                matches.send m if m
             else
                 stop.receive
                 break
@@ -67,24 +73,33 @@ class Trouve::Job
     private def find_in_file(filename: String)
         line_num = 0
         matches = 0
-        before = Array.new(@before, "")
-        before_index = 0
-        after_count = 0
+        buffer = CircularBuffer(String).new(@before + @after + 1)
+        add_in = -1
+        match = Match.new(filename)
 
         File.each_line(filename) do |line|
             line_num += 1
-            case pat = @pattern
-            when String
-                if line.includes?(pat)
-                    puts "> #{filename}:#{line_num}: #{line}"
-                    matches += 1
+            add_in -= 1 if add_in > 0
+
+            is_match = 
+                case pat = @pattern
+                when String
+                    line.includes?(pat)
+                else
+                    line =~ pat
                 end
-            else
-                if line =~ pat
-                    puts "> #{filename}:#{line_num}: #{line}"
-                    matches += 1
-                end
+
+            if is_match
+                match.line_nums << line_num
+                add_in = @after
+                matches += 1
             end
+
+            if add_in == 0
+                match.buffers << {line_num - buffer.length, buffer.to_a}
+                add_in = -1
+            end
+
             break if @max_matches > 0 && matches >= @max_matches
         end
     end
