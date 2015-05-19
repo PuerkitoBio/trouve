@@ -28,6 +28,8 @@ class Trouve::CircularBuffer(T)
     end
 
     def expand(add_n: Int)
+        return self if add_n <= 0
+
         new_container = Array(T).new(@capacity + add_n)
         each { |e| new_container << e }
         @insert_at = new_container.length

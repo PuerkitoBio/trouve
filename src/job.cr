@@ -1,13 +1,12 @@
 class Trouve::Job
     WORKERS = 10
-    # TODO : use the max line length
     MAX_LINE_LENGTH = 256
 
     # TODO : implement those... (also, inc/exc dirs)
     # property :include_files, :exclude_files, :include_dirs, :exclude_dirs
-    property :pattern, :dir, :max_matches, :after, :before
+    property :pattern, :dir, :max_matches, :after, :before, :formatter
 
-    def initialize(@pattern: (String | Regex), @dir = "." : String)
+    def initialize(@pattern: (String | Regex), @dir = "." : String, @formatter = StdFormatter.new : Formatter)
         @max_matches = 0
         @after, @before = 0, 0
     end
@@ -37,9 +36,7 @@ class Trouve::Job
             case Channel.select(matches, stop)
             when matches
                 m = matches.receive
-                if m.line_nums.length > 0
-                    STDOUT.puts "#{m.filename}: #{m.line_nums.length} matches"
-                end
+                @formatter.format(m)
             when stop
                 stop.receive
                 break
@@ -108,20 +105,26 @@ class Trouve::Job
 
             if is_match
                 match.line_nums << line_num
+                if add_in >= 0
+                    # was already in a match - expand the buffer to @after
+                    # lines + the new match line
+                    buffer.expand(@after+1)
+                end
                 add_in = @after
                 matches += 1
             end
+            line = line[0,MAX_LINE_LENGTH] if line.length > MAX_LINE_LENGTH
+            buffer << line
 
-            # TODO: adjust add_in when many matches are found in the same buffer
             if add_in == 0
-                match.buffers << {line_num - buffer.length, buffer.to_a}
+                match.buffers << {line_num - buffer.length + 1, buffer.to_a}
                 add_in = -1
             end
 
             break if @max_matches > 0 && matches >= @max_matches
         end
         if add_in >= 0
-            match.buffers << {line_num - buffer.length, buffer.to_a}
+            match.buffers << {line_num - buffer.length + 1, buffer.to_a}
         end
         match
     end
