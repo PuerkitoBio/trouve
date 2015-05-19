@@ -11,15 +11,15 @@ class Trouve::StdFormatter < Trouve::Formatter
         STDOUT.puts "" if @has_previous
         @has_previous = true
 
-        STDOUT.puts m.filename # TODO : color
+        STDOUT.puts "\033[1;32m#{m.filename}\033[0m" 
         match_line = m.line_nums.shift
         m.buffers.each do |data|
             line_num, buf = data
             buf.each do |line|
                 if line_num == match_line
-                    STDOUT.puts "#{line_num}:#{line}"
+                    STDOUT.puts "\033[1;33m#{line_num}\033[0m:#{line}"
                 else
-                    STDOUT.puts "#{line_num}-#{line}"
+                    STDOUT.puts "\033[1;33m#{line_num}\033[0m-#{line}"
                 end
                 if line_num >= match_line && m.line_nums.length > 0
                     match_line = m.line_nums.shift
