@@ -1,3 +1,5 @@
+require "colorize"
+
 abstract class Trouve::Formatter
     abstract def format(m: Matcher)
 end
@@ -8,18 +10,24 @@ class Trouve::StdFormatter < Trouve::Formatter
     def format(m: Matcher)
         return if m.line_nums.length == 0
 
-        STDOUT.puts "" if @has_previous
+        STDOUT << "\n" if @has_previous
         @has_previous = true
 
-        STDOUT.puts "\033[1;32m#{m.filename}\033[0m" 
+        with_color.green.push(STDOUT) do |io|
+            io << m.filename << "\n"
+        end
+
         match_line = m.line_nums.shift
         m.buffers.each do |data|
             line_num, buf = data
             buf.each do |line|
+                with_color.yellow.push(STDOUT) do |io|
+                    io << line_num
+                end
                 if line_num == match_line
-                    STDOUT.puts "\033[1;33m#{line_num}\033[0m:#{line}"
+                    STDOUT << ":#{line}"
                 else
-                    STDOUT.puts "\033[1;33m#{line_num}\033[0m-#{line}"
+                    STDOUT << "-#{line}"
                 end
                 if line_num >= match_line && m.line_nums.length > 0
                     match_line = m.line_nums.shift
