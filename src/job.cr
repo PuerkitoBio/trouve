@@ -1,5 +1,17 @@
+macro receive_or_stop(in_chan, stop_chan)
+    loop do
+        case Channel.select({{in_chan.id}}, {{stop_chan.id}})
+        when {{in_chan.id}}
+            {{ yield }}
+        else
+            {{stop_chan.id}}.receive
+            break
+        end
+    end
+end
+
 class Trouve::Job
-    WORKERS = 10
+    WORKERS = 128
     MAX_LINE_LENGTH = 256
 
     # TODO : implement those... (also, inc/exc dirs)
@@ -32,15 +44,9 @@ class Trouve::Job
     end
 
     private def process_matches(matches: Channel(Match), stop: Channel(Bool))
-        loop do
-            case Channel.select(matches, stop)
-            when matches
+        receive_or_stop(matches, stop) do
                 m = matches.receive
                 @formatter.format(m)
-            when stop
-                stop.receive
-                break
-            end
         end
     end
 
@@ -63,24 +69,18 @@ class Trouve::Job
 
     private def process_files(ch: Channel(String), stop: Channel(Bool), 
                              matches: Channel(Match))
-        loop do
-            case Channel.select(ch, stop)
-            when ch
-                filename = ch.receive
-                begin
-                    m = find_in_file(filename)
-                rescue ex: InvalidByteSequenceError
-                    # presumably a binary file
-                    # TODO : detect binary or not using first few bytes
-                    # maybe https://mimesniff.spec.whatwg.org/ ?
-                rescue ex: Exception
-                    m = Match.new(filename, ex.message)
-                end
-                matches.send m if m
-            else
-                stop.receive
-                break
+        receive_or_stop(ch, stop) do
+            filename = ch.receive
+            begin
+                m = find_in_file(filename)
+            rescue ex: InvalidByteSequenceError
+                # presumably a binary file
+                # TODO : detect binary or not using first few bytes
+                # maybe https://mimesniff.spec.whatwg.org/ ?
+            rescue ex: Exception
+                m = Match.new(filename, ex.message)
             end
+            matches.send m if m
         end
     end
 
